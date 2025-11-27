@@ -1,0 +1,55 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Logs and coverage
+*.log
+logs/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.pytest_cache/
+.cache
+cover/
+
+# Notebook checkpoints
+.ipynb_checkpoints
+
+# Type checker / lint caches
+.mypy_cache/
+.pyre/
+dmypy.json
+.dmypy.json
+
+# IDE / editor
+.vscode/
+.idea/
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Model artifacts and runs
+models/*.pkl
+models/*.pt
+models/*.pth
+models/*.ckpt
+checkpoints/
+runs/
+outputs/
