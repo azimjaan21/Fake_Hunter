@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DeepHunter Ensemble Demo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="page">
+    <header class="header">
+        <div class="logo">DeepHunter<span>v1</span></div>
+        <div class="subtitle">Multi-Discriminator Ensemble Deepfake Detector</div>
+    </header>
+
+    <main class="main">
+        <section class="upload-card">
+            <h1>Upload an image</h1>
+            <p class="hint">The demo uses 3 simple discriminators (brightness, texture, color) as placeholders.
+                Replace them with your StyleGAN / Diffusion models for real experiments.</p>
+
+            <form method="post" enctype="multipart/form-data" class="upload-form">
+                <label class="file-input">
+                    <input type="file" name="image" accept="image/*" required>
+                    <span>Choose image...</span>
+                </label>
+                <button type="submit" class="btn-primary">Analyze</button>
+            </form>
+        </section>
+
+        {% if image_path %}
+        <section class="results-grid">
+            <div class="card image-card">
+                <h2>Input Image</h2>
+                <div class="image-wrapper">
+                    <img src="{{ image_path }}" alt="Uploaded image">
+                </div>
+            </div>
+
+            <div class="card summary-card">
+                <h2>Ensemble Prediction</h2>
+                <p class="summary-text">
+                    <span class="label">Average Probability (Fake):</span>
+                    <span class="value">{{ "%.3f"|format(avg_prob) }}</span>
+                </p>
+                <p class="summary-text">
+                    <span class="label">Weighted Probability (Fake):</span>
+                    <span class="value">{{ "%.3f"|format(weighted_prob) }}</span>
+                </p>
+
+                <div class="badge-wrapper">
+                    {% if avg_prob >= 0.5 %}
+                        <span class="badge badge-fake">Predicted: Fake</span>
+                    {% else %}
+                        <span class="badge badge-real">Predicted: Real</span>
+                    {% endif %}
+                </div>
+
+                <p class="hint small">
+                    * Probabilities are derived from logit-like scores via sigmoid and then averaged.
+                </p>
+            </div>
+
+            <div class="card models-card">
+                <h2>Per-Discriminator Scores</h2>
+                <div class="models-list">
+                    {% for m in per_model %}
+                        <div class="model-row">
+                            <div class="model-header">
+                                <span class="model-name">{{ m.name }}</span>
+                                <span class="model-prob">{{ "%.3f"|format(m.prob) }}</span>
+                            </div>
+                            <div class="bar-bg">
+                                <!-- <div class="bar-fill" style="width: {{ (m.prob * 100)|round(1) }}%;"></div> -->
+                            </div>
+                            <div class="model-logit">logit: {{ "%.3f"|format(m.logit) }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+        {% endif %}
+    </main>
+
+    <footer class="footer">
+        <span>DeepHunter Project — Ensemble Stage 1</span>
+    </footer>
+</div>
+</body>
+</html>

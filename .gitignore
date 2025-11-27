@@ -5,6 +5,7 @@ __pycache__/
 
 # Virtual environments
 .env
+.venv_face/
 .venv
 env/
 venv/
@@ -53,3 +54,4 @@ models/*.ckpt
 checkpoints/
 runs/
 outputs/
+uploads/
