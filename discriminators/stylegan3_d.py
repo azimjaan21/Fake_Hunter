@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+import os
+import sys
 from .base_discriminator import BaseDiscriminator
 import legacy
 
