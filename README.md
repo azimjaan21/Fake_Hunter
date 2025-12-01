@@ -19,7 +19,6 @@ FakeHunter v1 loads the following discriminators:
 - **StyleGAN3-D**
 - **StyleGAN2-ADA-D**
 - **Diffusion-StyleGAN2-D**
-- (Optional fallback: DummyD for debugging)
 
 Each model outputs logits → converted to probabilities → fused into a final prediction.
 
