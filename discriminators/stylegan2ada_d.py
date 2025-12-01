@@ -21,6 +21,8 @@ class StyleGAN2ADADiscriminator(BaseDiscriminator):
 
     def score(self, pil_image):
         x = self.preprocess(pil_image)
+        c_dim = getattr(self.model, "c_dim", 0)
+        c = torch.zeros((1, c_dim), device=self.device) if c_dim is not None else None
         with torch.no_grad():
-            out = self.model(x)
+            out = self.model(x, c)
         return float(out.item())
