@@ -4,7 +4,7 @@ FakeHunter is a research-grade DeepFake detection framework that unifies multipl
 This demo provides:
 
 ✔ A modern Flask web interface  
-✔ Real StyleGAN2-ADA, StyleGAN3, and Diffusion-GAN discriminators  
+✔ Real StyleGAN2-ADA, StyleGAN3 discriminators and VAE-based detector  
 ✔ Unified score fusion (avg, weighted)  
 ✔ Expandable architecture for meta-learning (FakeHunter v2)  
 ✔ Upload → Analyze → View per-model logs + ensemble prediction  
@@ -18,7 +18,7 @@ FakeHunter v1 loads the following discriminators:
 
 - **StyleGAN3-D**
 - **StyleGAN2-ADA-D**
-- **Diffusion-StyleGAN2-D**
+- **VAE**
 
 Each model outputs logits → converted to probabilities → fused into a final prediction.
 
