@@ -8,13 +8,15 @@ if _STYLEGAN_DIR not in sys.path:
     sys.path.insert(0, _STYLEGAN_DIR)
 
 from .stylegan3_d import StyleGAN3Discriminator
-from .stylegan2ada_d import StyleGAN2ADADiscriminator
-# from .diffusion_d import DiffusionGANDiscriminator
+from .stylegan2ada_d import StyleGAN2ADADiscriminator 
+from discriminators.vae_detector import VAEHybridDetectorWrapper
 
 def get_all_discriminators():
     return [
         StyleGAN3Discriminator(r"C:\Users\dalab\Desktop\azimjaan21\DeepHUNTER\Fake_Hunter\models\stylegan3-t-ffhq-1024x1024.pkl"),
         StyleGAN2ADADiscriminator(r"C:\Users\dalab\Desktop\azimjaan21\DeepHUNTER\Fake_Hunter\models\ffhq-1024-stylegan2-ada.pkl"),
-       # DiffusionGANDiscriminator(r"C:\Users\dalab\Desktop\azimjaan21\DeepHUNTER\Fake_Hunter\models\diffusion-stylegan2-ffhq.pkl"),
-       # DummyDiscriminator(),  # OPTIONAL so system never breaks
+        VAEHybridDetectorWrapper(r"C:\Users\dalab\Desktop\azimjaan21\DeepHUNTER\Fake_Hunter\models\vae_hybrid.pth", 
+                                 device='cuda')
     ]
+
+

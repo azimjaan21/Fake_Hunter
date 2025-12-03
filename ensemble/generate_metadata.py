@@ -1,99 +1,126 @@
 # generate_meta_data.py
+
 import os
+import sys
 import csv
 import numpy as np
-from PIL import Image
-from tqdm import tqdm  # pip install tqdm
+from PIL import Image, ImageFile
+from tqdm import tqdm
+from pathlib import Path
 
-# Import your actual model loader
-# Adjust 'discriminators' to match your actual folder/file name
+ImageFile.LOAD_TRUNCATED_IMAGES = True  # Avoid PIL broken file errors
+
+# ------------------------------------------------------------
+# FIX PYTHON PATH so we can import discriminators properly
+# ------------------------------------------------------------
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.append(ROOT)
+
+# Now import
 from discriminators import get_all_discriminators
-from ensemble.ensemble_models import DeepHunterEnsemble, sigmoid
+# ------------------------------------------------------------
 
 # --- CONFIGURATION ---
-DATASET_PATH = "meta_dataset"  # Folder containing 'real' and 'fake' subfolders
+DATASET_PATH = r"C:\Users\dalab\Desktop\azimjaan21\DeepHUNTER\fakeface_generator\metadata"
 OUTPUT_CSV = "meta_train.csv"
 IMG_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.webp')
 
+
+# ------------------------------------------------------------
+# Auto-detect model type (GAN-D vs classifier)
+# ------------------------------------------------------------
 def get_model_type(model_name):
-    """Auto-detect model type for polarity check."""
     name = model_name.lower()
-    if any(k in name for k in ['stylegan', 'diffusion', 'gan_d', 'progan']):
+    if any(k in name for k in ['stylegan', 'gan_d', 'diffusion', 'progan']):
         return 'gan_d'
     return 'classifier'
 
+
+# ------------------------------------------------------------
+# Process one image across all discriminators
+# ------------------------------------------------------------
 def process_image(models, img_path):
-    """Runs all models on one image and returns a list of probabilities."""
     try:
-        # Open and convert image
         img = Image.open(img_path).convert("RGB")
-        
-        # 1. Get Logits
+
         logits = []
-        model_types = []
+        types = []
+
+        # Run all models
         for m in models:
-            logits.append(m.score(img))
-            model_types.append(get_model_type(m.name))
-        
-        # 2. Convert Logits to Probabilities (Manual Step)
-        # We do this here to give the Meta-Learner clean [0-1] inputs
+            logit = m.score(img)   # YOU ALREADY HAVE THIS
+            logits.append(logit)
+            types.append(get_model_type(m.name))
+
+        # Convert logits to probabilities
         probs = []
-        for logit, m_type in zip(logits, model_types):
-            if m_type == 'gan_d':
-                score = -logit # Polarity Flip
-            else:
-                score = logit
-            
-            # Sigmoid Calibration
+        for logit, m_type in zip(logits, types):
+
+            # 1. Flip polarity for GAN-D (Real=positive)
+            score = -logit if m_type == 'gan_d' else logit
+
+            # 2. Stabilize (clip extreme scores)
             score = np.clip(score, -20, 20)
-            p_fake = 1 / (1 + np.exp(-score))
+
+            # Sigmoid → probability of FAKE
+            p_fake = 1.0 / (1.0 + np.exp(-score))
             probs.append(p_fake)
-            
+
         return probs
 
     except Exception as e:
-        print(f"Error processing {img_path}: {e}")
+        print(f"[ERROR] {img_path}: {e}")
         return None
 
+
+# ------------------------------------------------------------
+# MAIN
+# ------------------------------------------------------------
 def main():
-    # 1. Load Models Once
-    print("Loading models... (this may take a moment)")
+    # Load discriminators once
+    print("[INFO] Loading models...")
     models = get_all_discriminators()
     model_names = [m.name for m in models]
-    print(f"Loaded {len(models)} models: {model_names}")
 
-    # 2. Prepare CSV File
-    # Columns: [Model1_Prob, Model2_Prob, ..., True_Label]
+    print(f"[INFO] Loaded {len(models)} models:")
+    for n in model_names:
+        print("   →", n)
+
     headers = model_names + ["target"]
-    
-    with open(OUTPUT_CSV, mode='w', newline='') as f:
+
+    # Create CSV
+    with open(OUTPUT_CSV, "w", newline='') as f:
         writer = csv.writer(f)
         writer.writerow(headers)
 
-        # 3. Process Real Images (Target = 0)
-        real_folder = os.path.join(DATASET_PATH, 'real')
-        if os.path.exists(real_folder):
-            print(f"Processing REAL images in {real_folder}...")
-            for fname in tqdm(os.listdir(real_folder)):
-                if fname.lower().endswith(IMG_EXTENSIONS):
-                    path = os.path.join(real_folder, fname)
-                    probs = process_image(models, path)
-                    if probs:
-                        writer.writerow(probs + [0]) # 0 = Real
+        # --- Process REAL ---
+        real_dir = Path(DATASET_PATH) / "real"
+        if real_dir.is_dir():
+            print(f"\n[REAL] Processing: {real_dir}")
+            image_files = [p for p in real_dir.iterdir() if p.suffix.lower() in IMG_EXTENSIONS]
 
-        # 4. Process Fake Images (Target = 1)
-        fake_folder = os.path.join(DATASET_PATH, 'fake')
-        if os.path.exists(fake_folder):
-            print(f"Processing FAKE images in {fake_folder}...")
-            for fname in tqdm(os.listdir(fake_folder)):
-                if fname.lower().endswith(IMG_EXTENSIONS):
-                    path = os.path.join(fake_folder, fname)
-                    probs = process_image(models, path)
-                    if probs:
-                        writer.writerow(probs + [1]) # 1 = Fake
+            for path in tqdm(image_files, ncols=80):
+                probs = process_image(models, path)
+                if probs:
+                    writer.writerow(probs + [0])  # Real = 0
 
-    print(f"\nDone! Data saved to {OUTPUT_CSV}")
-    print("Next Step: Run 'train_meta.py' to create your meta_model.pkl")
+        # --- Process FAKE ---
+        fake_dir = Path(DATASET_PATH) / "fake"
+        if fake_dir.is_dir():
+            print(f"\n[FAKE] Processing: {fake_dir}")
+            image_files = [p for p in fake_dir.iterdir() if p.suffix.lower() in IMG_EXTENSIONS]
+
+            for path in tqdm(image_files, ncols=80):
+                probs = process_image(models, path)
+                if probs:
+                    writer.writerow(probs + [1])  # Fake = 1
+
+    print("\n------------------------------------------------------------")
+    print(f"[DONE] Metadata saved → {OUTPUT_CSV}")
+    print("Now run:   python train_meta.py")
+    print("------------------------------------------------------------")
+
 
 if __name__ == "__main__":
     main()
