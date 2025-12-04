@@ -25,6 +25,8 @@ Each model outputs logits → converted to probabilities → fused into a final 
 ### 🌐 Modern Web UI 
 Upload any image and FakeHunter instantly displays:
 
+<img width="1910" height="776" alt="image" src="https://github.com/user-attachments/assets/309c5902-ce9b-46f2-8fdf-1d1c97bb485e" />
+
 - Per-model fake probability  
 - Logits  
 - Final ensemble score  
