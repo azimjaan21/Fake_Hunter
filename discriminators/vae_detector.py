@@ -114,36 +114,47 @@ def get_hybrid_model(device='cuda'):
 #               WRAPPER FOR ENSEMBLE COMPATIBILITY
 # ============================================================
 
-class VAEHybridDetectorWrapper:
-    """Adds .score(pil_image) so this model behaves like other discriminators."""
+# in discriminators/vae_detector.py (wrapper portion)
+import torch
+import torchvision.transforms as T
+from PIL import Image
+import numpy as np
 
+class VAEHybridDetectorWrapper:
     def __init__(self, weights_path, device="cuda"):
         self.device = device
         self.name = "VAEHybrid"
         self.type = "vae"
         self.model = load_hybrid_vae(weights_path, device)
         self.model.eval()
+        self.transform = T.Compose([T.Resize((224,224)), T.ToTensor()])
 
-        self.transform = T.Compose([
-            T.Resize((224, 224)),
-            T.ToTensor(),
-        ])
+    def preprocess(self, pil_image):
+        return self.transform(pil_image).unsqueeze(0).to(self.device)
 
-    def preprocess(self, pil_image: Image.Image):
-        img = self.transform(pil_image).unsqueeze(0).to(self.device)
-        return img
+    def score(self, pil_image):
+        x = self.preprocess(pil_image)
+        with torch.no_grad():
+            logits = self.model(x).squeeze(0).cpu().numpy()
+        # return single scalar logit: fake - real
+        return float(logits[1] - logits[0])
 
-    def score(self, pil_image: Image.Image):
+    def extract_features(self, pil_image):
         """
-        Returns: raw logit where positive → FAKE, negative → REAL.
-        Compatible with existing GAN discriminator .score().
+        Return a 1-D numpy array feature for ProtoNet. Options:
+          - use penultimate fusion layer before final Linear (requires modifying model)
+          - fallback: use logits and frequency features concatenated
+        Here we compute: [cnn_feat (512), freq_feat (128)] combined -> (640,)
         """
         x = self.preprocess(pil_image)
-
         with torch.no_grad():
-            logits = self.model(x).squeeze(0)  # [2]
+            # Extract cnn features via backbone
+            cnn_feat = self.model.cnn_backbone(x)  # (1, num_features)
+            freq_feat = self.model.freq_analyzer(x) # (1, 128)
+        cf = cnn_feat.squeeze(0).cpu().numpy()
+        ff = freq_feat.squeeze(0).cpu().numpy()
+        vec = np.concatenate([cf, ff], axis=0).astype(np.float32)
+        # L2 normalize
+        vec = vec / (np.linalg.norm(vec) + 1e-10)
+        return vec
 
-        real_logit = float(logits[0].cpu())
-        fake_logit = float(logits[1].cpu())
-
-        return fake_logit - real_logit   # single scalar logit

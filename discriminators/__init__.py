@@ -9,14 +9,14 @@ if _STYLEGAN_DIR not in sys.path:
 
 from .stylegan3_d import StyleGAN3Discriminator
 from .stylegan2ada_d import StyleGAN2ADADiscriminator 
-from discriminators.vae_detector import VAEHybridDetectorWrapper
+# from discriminators.vae_detector import VAEHybridDetectorWrapper
 
 def get_all_discriminators():
     return [
         StyleGAN3Discriminator(r"C:\Users\dalab\Desktop\azimjaan21\DeepHUNTER\Fake_Hunter\models\stylegan3-t-ffhq-1024x1024.pkl"),
         StyleGAN2ADADiscriminator(r"C:\Users\dalab\Desktop\azimjaan21\DeepHUNTER\Fake_Hunter\models\ffhq-1024-stylegan2-ada.pkl"),
-        VAEHybridDetectorWrapper(r"C:\Users\dalab\Desktop\azimjaan21\DeepHUNTER\Fake_Hunter\models\vae_hybrid.pth", 
-                                 device='cuda')
+       # VAEHybridDetectorWrapper(r"C:\Users\dalab\Desktop\azimjaan21\DeepHUNTER\Fake_Hunter\models\vae_hybrid.pth", 
+                                 #device='cuda')
     ]
 
 
