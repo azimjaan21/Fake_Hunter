@@ -1,0 +1,13 @@
+torch
+torchvision
+numpy
+scipy
+Pillow
+opencv-python
+scikit-learn
+matplotlib
+gradio
+diffusers
+transformers
+accelerate
+tqdm
