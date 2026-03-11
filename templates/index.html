@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>DeepHunter V2 — Few-Shot Detection</title>
+    <title>DeepHunter V2 - Few-Shot Detection</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
@@ -14,7 +14,6 @@
         <div class="logo">DeepHunter <span>V2</span></div>
         <div class="subtitle">Few-Shot ProtoNet Deepfake Detection</div>
     </header>
-
 
     <main class="main">
         <section class="upload-card">
@@ -33,7 +32,7 @@
         {% if image_path %}
         <section class="results-grid">
 
-            <!-- Input Image -->
+            <!-- LEFT SIDE — Input Image -->
             <div class="card image-card">
                 <h2>Input Image</h2>
                 <div class="image-wrapper">
@@ -41,43 +40,171 @@
                 </div>
             </div>
 
-            <!-- V2 Few-Shot ProtoNet Output -->
-            <div class="card summary-card">
-                <h2>V2: Few-Shot ProtoNet Prediction</h2>
+            <!-- RIGHT SIDE — STACKED COLUMN -->
+            <div class="right-column">
 
-                {% if fewshot_enabled %}
+                <!-- (1) PREDICTION SUMMARY -->
+                <div class="card summary-card">
+                    <h2>V2: Few-Shot ProtoNet Prediction</h2>
+
+                    {% if fewshot_enabled %}
                     <p class="summary-text">
                         <span class="label">ProtoNet P(Fake):</span>
-                        <span class="value">{{ "%.3f"|format(fewshot_prob) }}</span>
+                        <span class="value">{{ "%.3f"|format(fewshot_prob or 0.0) }}</span>
                     </p>
 
                     <div class="badge-wrapper">
-                        {% if fewshot_prob >= 0.5 %}
-                            <span class="badge badge-fake">Few-Shot: Fake</span>
+                        {% if (fewshot_prob or 0) >= 0.5 %}
+                            <span class="badge badge-fake">FEW-SHOT: FAKE</span>
                         {% else %}
-                            <span class="badge badge-real">Few-Shot: Real</span>
+                            <span class="badge badge-real">FEW-SHOT: REAL</span>
                         {% endif %}
                     </div>
 
-                    <p class="hint small">
-                        * Cosine similarity to real/fake prototypes in discriminator embedding space.
-                    </p>
-                {% else %}
+                    {% else %}
                     <p class="hint small">
                         Few-shot prototypes not created.<br>
                         Use <code>/fewshot/create_prototypes</code> to enable V2.
                     </p>
+                    {% endif %}
+                </div>
+
+                {% if analysis %}
+
+                <!-- (2) DISCRIMINATOR SIGNALS -->
+                <div class="card disc-card">
+                    <h2>Discriminator Signals</h2>
+
+                    <div class="disc-list">
+                        {% for d in analysis.disc_scores %}
+                        <div class="disc-row">
+                            <div class="disc-name">{{ d.name }}</div>
+                            <div class="disc-bar">
+                                <div class="disc-fill" style="width: {{ d.p_fake }}%;"></div>
+                            </div>
+                            <div class="disc-value">{{ "%.1f"|format(d.p_fake) }}%</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- (3) GENERATOR LIKELIHOOD -->
+                <div class="card gen-card">
+                    <h2>Likely Generator Type</h2>
+
+                    <div class="gen-list">
+                        {% for k, v in analysis.gen_likelihood.items() %}
+                        <div class="gen-row">
+                            <div class="gen-label">{{ k|capitalize }}</div>
+                            <div class="gen-bar">
+                                <div class="gen-fill" style="width: {{ v }}%;"></div>
+                            </div>
+                            <div class="gen-value">{{ "%.1f"|format(v) }}%</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- (4) EMBEDDING SPACE (MOVED HERE) -->
+                <div class="card embed-card">
+                    <h2>Embedding Space (ProtoNet)</h2>
+
+                    <div class="embed-wrapper">
+                        <canvas id="embeddingCanvas" width="330" height="200"></canvas>
+                        <div class="embed-legend">
+                            <span class="legend-dot real"></span> Real support
+                            <span class="legend-dot fake"></span> Fake support
+                            <span class="legend-dot query"></span> Query image
+                        </div>
+                    </div>
+                </div>
+
                 {% endif %}
-            </div>
+            </div> <!-- end right-column -->
 
         </section>
         {% endif %}
     </main>
 
-    <footer class="footer">
-        <span>DeepHunter — Version 2: Few-Shot Learning</span>
-    </footer>
-
 </div>
+
+{% if analysis and analysis.embedding_vis %}
+<script>
+(function() {
+    const data = {{ analysis.embedding_vis | tojson | safe }};
+    if (!data || !data.query) return;
+
+    const canvas = document.getElementById('embeddingCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    const pts_real = data.real || [];
+    const pts_fake = data.fake || [];
+    const q = data.query;
+
+    const all = [...pts_real, ...pts_fake, q];
+    if (!all.length) return;
+
+    const xs = all.map(p => p.x);
+    const ys = all.map(p => p.y);
+
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+
+    const w = canvas.width, h = canvas.height, pad = 15;
+
+    function nx(x) {
+        return (maxX === minX) ? w/2 : pad + (x-minX)/(maxX-minX)*(w-pad*2);
+    }
+    function ny(y) {
+        return (maxY === minY) ? h/2 : h - (pad + (y-minY)/(maxY-minY)*(h-pad*2));
+    }
+
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle = "rgba(15,23,42,1)";
+    ctx.fillRect(0,0,w,h);
+
+    pts_real.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(nx(p.x), ny(p.y), 3, 0, Math.PI*2);
+        ctx.fillStyle = "#38bdf8";
+        ctx.fill();
+    });
+
+    pts_fake.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(nx(p.x), ny(p.y), 3, 0, Math.PI*2);
+        ctx.fillStyle = "#fb7185";
+        ctx.fill();
+    });
+
+    const qx = nx(q.x), qy = ny(q.y);
+
+    ctx.beginPath();
+    ctx.strokeStyle = "#a3e635";
+    ctx.lineWidth = 2;
+    const r = 7;
+
+    for (let i = 0; i < 5; i++) {
+        const ang = (Math.PI * 2 / 5) * i - Math.PI / 2;
+        const inner = r * 0.4;
+
+        const ox = qx + Math.cos(ang) * r;
+        const oy = qy + Math.sin(ang) * r;
+
+        const ix = qx + Math.cos(ang + Math.PI/5) * inner;
+        const iy = qy + Math.sin(ang + Math.PI/5) * inner;
+
+        if (i === 0) ctx.moveTo(ox, oy);
+        else ctx.lineTo(ox, oy);
+
+        ctx.lineTo(ix, iy);
+    }
+    ctx.closePath();
+    ctx.stroke();
+})();
+</script>
+{% endif %}
+
 </body>
 </html>
